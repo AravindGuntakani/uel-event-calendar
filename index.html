@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UEL Events App</title>
+
+<style>
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --card: #1e293b;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #00d4aa;
+  --danger: #ff4d6d;
+  --radius: 14px;
+  --font-body: system-ui, -apple-system, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+.app {
+  max-width: 420px;
+  margin: auto;
+  padding-bottom: 80px;
+}
+
+header {
+  padding: 20px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.search {
+  padding: 0 20px 15px;
+}
+
+.search input {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--surface);
+  color: white;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px 15px;
+  overflow-x: auto;
+}
+
+.filter-btn {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: none;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  color: black;
+}
+
+.events {
+  padding: 0 20px;
+}
+
+.card {
+  background: var(--card);
+  padding: 16px;
+  margin-bottom: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.card:hover {
+  transform: scale(1.02);
+}
+
+.card h3 {
+  margin-bottom: 6px;
+}
+
+.card small {
+  color: var(--muted);
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  background: var(--surface);
+}
+
+.nav-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.nav-btn.active {
+  color: var(--accent);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: var(--surface);
+  padding: 20px;
+  border-radius: var(--radius);
+  width: 90%;
+}
+
+.close-btn {
+  background: var(--danger);
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+}
+
+.calendar {
+  padding: 20px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-day {
+  padding: 8px;
+  text-align: center;
+  background: var(--surface);
+  border-radius: 6px;
+}
+
+.saved-page {
+  padding: 20px;
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<header>UEL Student Events</header>
+
+<div id="page-home">
+
+<div class="search">
+<input type="text" id="searchInput" placeholder="Search events..." oninput="renderHome()">
+</div>
+
+<div class="filters">
+<button class="filter-btn active" onclick="setCategory('all', this)">All</button>
+<button class="filter-btn" onclick="setCategory('Tech', this)">Tech</button>
+<button class="filter-btn" onclick="setCategory('Sports', this)">Sports</button>
+<button class="filter-btn" onclick="setCategory('Cultural', this)">Cultural</button>
+</div>
+
+<div class="events" id="eventsContainer"></div>
+
+</div>
+
+<div id="page-calendar" style="display:none;">
+<div class="calendar">
+<h3 id="calMonthLabel"></h3>
+<div class="cal-grid" id="calendarGrid"></div>
+</div>
+</div>
+
+<div id="page-saved" style="display:none;">
+<div class="saved-page">
+<h3>Saved Events</h3>
+<div id="savedContainer"></div>
+</div>
+</div>
+
+</div>
+
+<div class="bottom-nav">
+<button class="nav-btn active" onclick="navigate('home', this)">Home</button>
+<button class="nav-btn" onclick="navigate('calendar', this)">Calendar</button>
+<button class="nav-btn" onclick="navigate('saved', this)">Saved</button>
+</div>
+
+<div class="modal" id="eventModal">
+<div class="modal-content">
+<button class="close-btn" onclick="closeModal()">Close</button>
+<h3 id="m-title"></h3>
+<p id="m-date"></p>
+<p id="m-desc"></p>
+<button onclick="saveEvent()">Save Event</button>
+</div>
+</div>
+
+<script>
+const events = [
+  {id:1, title:"Tech Hackathon", category:"Tech", date:"2026-02-15", desc:"24 hour coding challenge."},
+  {id:2, title:"Football Tournament", category:"Sports", date:"2026-02-20", desc:"Inter-university football match."},
+  {id:3, title:"Cultural Night", category:"Cultural", date:"2026-02-25", desc:"Music, dance and food festival."}
+];
+
+let currentCategory = "all";
+let selectedEvent = null;
+
+function setCategory(cat, btn) {
+  currentCategory = cat;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHome();
+}
+
+function renderHome() {
+  const container = document.getElementById("eventsContainer");
+  const search = document.getElementById("searchInput").value.toLowerCase();
+
+  const filtered = events.filter(e => 
+    (currentCategory === "all" || e.category === currentCategory) &&
+    e.title.toLowerCase().includes(search)
+  );
+
+  container.innerHTML = filtered.length 
+    ? filtered.map(e => `
+      <div class="card" onclick="openModal(${e.id})">
+        <h3>${e.title}</h3>
+        <small>${e.date}</small>
+      </div>
+    `).join('')
+    : "<p>No events found</p>";
+}
+
+function openModal(id) {
+  selectedEvent = events.find(e=>e.id===id);
+  document.getElementById("m-title").textContent = selectedEvent.title;
+  document.getElementById("m-date").textContent = selectedEvent.date;
+  document.getElementById("m-desc").textContent = selectedEvent.desc;
+  document.getElementById("eventModal").style.display="flex";
+}
+
+function closeModal() {
+  document.getElementById("eventModal").style.display="none";
+}
+
+function saveEvent() {
+  let saved = JSON.parse(localStorage.getItem("savedEvents")) || [];
+  if(!saved.find(e=>e.id===selectedEvent.id)){
+    saved.push(selectedEvent);
+    localStorage.setItem("savedEvents", JSON.stringify(saved));
+    alert("Event saved!");
+  }
+}
+
+function navigate(page, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.getElementById("page-home").style.display="none";
+  document.getElementById("page-calendar").style.display="none";
+  document.getElementById("page-saved").style.display="none";
+
+  document.getElementById("page-"+page).style.display="block";
+
+  if(page==="calendar") renderCalendar();
+  if(page==="saved") renderSaved();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById("calendarGrid");
+  const label = document.getElementById("calMonthLabel");
+
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+
+  label.textContent = now.toLocaleString('default', {month:'long'}) + " " + year;
+
+  const days = new Date(year, month+1, 0).getDate();
+  let html="";
+  for(let i=1;i<=days;i++){
+    html+=`<div class="cal-day">${i}</div>`;
+  }
+  grid.innerHTML=html;
+}
+
+function renderSaved() {
+  const container = document.getElementById("savedContainer");
+  const saved = JSON.parse(localStorage.getItem("savedEvents")) || [];
+
+  container.innerHTML = saved.length
+    ? saved.map(e=>`
+      <div class="card">
+        <h3>${e.title}</h3>
+        <small>${e.date}</small>
+      </div>
+    `).join('')
+    : "<p>No saved events</p>";
+}
+
+renderHome();
+</script>
+
+</body>
+</html>
